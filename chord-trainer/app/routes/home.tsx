@@ -10,33 +10,31 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [bgColor, setBgColor] = useState("orange");
+  const [bgColor, setBgColor] = useState("#F59E42");
   const [key, setKey] = useState("C");
   const [visited, setVisited] = useState<boolean[]>(Array(7).fill(false));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKeyChords, setCurrentKeyChords] = useState<string[]>([]);
   const [disabled, setDisabled] = useState<boolean[]>(Array(7).fill(false));
+  const [showColorMenu, setShowColorMenu] = useState(false);
 
   const bgColorSelection = [
-    "orange",
-    "purple",
-    "blue",
-    "green",
-    "red",
-    "pink",
-    "yellow",
-    "teal",
-    "indigo",
-    "cyan",
+    "#F59E42", // Soft Orange
+    "#9B87F5", // Soft Purple
+    "#6BA4F6", // Sky Blue
+    "#52C9A8", // Mint Green
+    "#F87171", // Coral Red
+    "#F3A6C3", // Rose Pink
+    "#7DD3C0", // Turquoise
+    "#A5B4FC", // Lavender
+    "#67E8F9", // Light Cyan
+    "#B4A08A", // Warm Taupe
+    "#94A3B8", // Cool Gray
+    "black",
   ];
 
-  const handleChangeColor = () => {
-    let newColor;
-    do {
-      newColor =
-        bgColorSelection[Math.floor(Math.random() * bgColorSelection.length)];
-    } while (newColor === bgColor);
-    setBgColor(newColor);
+  const handleReset = () => {
+    setVisited(Array(7).fill(false));
   };
 
   //change currentKeyChords based on keychange
@@ -324,9 +322,37 @@ export default function Home() {
           Key: {key}
         </h3>
       </div>
+      {/* color menu */}
+      <div className="absolute top-12 right-12 z-1000">
+        <button
+          onClick={() => setShowColorMenu(!showColorMenu)}
+          className="hover:opacity-70 active:opacity-50 border-white w-16 h-16 rounded-full border-4 "
+        ></button>
+
+        {showColorMenu && (
+          <div className="mt-4 flex flex-col space-y-2 bg-white rounded-2xl p-4 absolute right-0">
+            {bgColorSelection.map((color) => (
+              <button
+                key={color}
+                onClick={() => {
+                  setBgColor(color);
+                  setShowColorMenu(false);
+                }}
+                className="w-16 h-16 rounded-full hover:opacity-80 active:opacity-50 border-4 border-white shadow-lg"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       {/* right */}
       <div className="absolute right-12 flex flex-col items-center justify-center">
-        <button className="hover:opacity-70 active:opacity-50 flex items-center justify-center ">
+        <button
+          className="hover:opacity-70 active:opacity-50 flex items-center justify-center "
+          onClick={() => {
+            handleReset();
+          }}
+        >
           <h3 className="scroll-m-20 text-6xl font-light text-white text-center">
             reset
           </h3>
