@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import type { Route } from "./+types/home";
-import { Play, Repeat } from "lucide-react";
+import { Play, Repeat, Pause } from "lucide-react";
+import * as Tone from "tone";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -10,13 +11,16 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Home() {
-  const [bgColor, setBgColor] = useState("#F59E42");
+  const [bgColor, setBgColor] = useState("black");
   const [key, setKey] = useState("C");
   const [visited, setVisited] = useState<boolean[]>(Array(7).fill(false));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentKeyChords, setCurrentKeyChords] = useState<string[]>([]);
   const [disabled, setDisabled] = useState<boolean[]>(Array(7).fill(false));
   const [showColorMenu, setShowColorMenu] = useState(false);
+  const [isMetronomeOn, setIsMetronomeOn] = useState(false);
+  const [beat, setBeat] = useState(1);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const bgColorSelection = [
     "#F59E42", // Soft Orange
@@ -25,15 +29,88 @@ export default function Home() {
     "#52C9A8", // Mint Green
     "#F87171", // Coral Red
     "#F3A6C3", // Rose Pink
-    "#7DD3C0", // Turquoise
     "#A5B4FC", // Lavender
-    "#67E8F9", // Light Cyan
     "#B4A08A", // Warm Taupe
     "#94A3B8", // Cool Gray
     "black",
   ];
 
-  const handleReset = () => {
+  const playClickSound = async (pitch: string) => {
+    await Tone.start();
+    const synth = new Tone.MembraneSynth({
+      pitchDecay: 1,
+      octaves: 1,
+      envelope: {
+        attack: 0.005,
+        decay: 0.1,
+        sustain: 0,
+        release: 0.05,
+      },
+      volume: -15,
+    }).toDestination();
+    synth.triggerAttackRelease(pitch, "8n");
+  };
+
+  const handlePlay = () => {
+    if (isMetronomeOn) {
+      // Stop metronome
+      setIsMetronomeOn(false);
+      setBeat(1);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    } else {
+      // Start metronome
+      resetVisited();
+      setIsMetronomeOn(true);
+      setBeat(1);
+    }
+  };
+
+  // Metronome effect
+  useEffect(() => {
+    if (isMetronomeOn) {
+      intervalRef.current = setInterval(() => {
+        setBeat((prevBeat) => {
+          const nextBeat = prevBeat === 4 ? 1 : prevBeat + 1;
+          // Use prevBeat instead of beat
+          prevBeat === 4 ? playClickSound("C5") : playClickSound("C4");
+          return nextBeat;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [isMetronomeOn]);
+
+  // Trigger chord switch on beat 1
+  useEffect(() => {
+    if (isMetronomeOn && beat === 1) {
+      // Check if all chords are visited
+      const unvisitedCount = visited.filter(
+        (v, i) => !v && !disabled[i]
+      ).length;
+      if (unvisitedCount === 0) {
+        // All visited, stop metronome
+        setIsMetronomeOn(false);
+        setBeat(1);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        handleSwitchChord();
+      }
+    }
+  }, [beat]);
+
+  const resetVisited = () => {
     setVisited(Array(7).fill(false));
   };
 
@@ -90,7 +167,9 @@ export default function Home() {
   const handleSwitchChord = () => {
     // console.log("step 1: handle switch called");
     const unvisitedIndices = visited
-      .map((isVisited, index) => (!isVisited && !disabled[index] ? index : -1))
+      .map((isVisited, index) =>
+        !isVisited && !disabled[index] && index !== currentIndex ? index : -1
+      )
       .filter((index) => index !== -1);
 
     if (unvisitedIndices.length === 0) {
@@ -143,36 +222,52 @@ export default function Home() {
 
   return (
     <div
-      className="flex-1 flex  w-screen h-screen justify-center items-center "
+      className="flex-1 flex  w-screen h-screen justify-center items-center select-none"
       style={{ backgroundColor: bgColor }}
     >
-      <h1 className="scroll-m-20 text-center text-[350px] font-extrabold tracking-tight text-balance text-white">
+      <h1 className="scroll-m-20 text-center text-[250px] font-extrabold tracking-tight text-balance text-white">
         {currentKeyChords[currentIndex]}
       </h1>
       {/* footer */}
       <div className="absolute bottom-12 space-x-12 flex flex-row items-center justify-center">
         {/* start */}
-        <button className=" rounded-full w-32 h-32 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center">
-          <Play size={55} color={bgColor} />
+        <button
+          onClick={handlePlay}
+          className=" rounded-full w-32 h-32 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+        >
+          {isMetronomeOn ? (
+            <Pause size={55} color={bgColor} />
+          ) : (
+            <Play size={55} color={bgColor} />
+          )}
         </button>
         {/* switch */}
         <button
+          disabled={isMetronomeOn}
           onClick={handleSwitchChord}
-          className=" rounded-full w-32 h-32 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className=" rounded-full w-32 h-32 disabled:opacity-30 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <Repeat size={55} color={bgColor} />
         </button>
         <div className="flex-row flex space-x-8">
-          <h3 className="scroll-m-20 text-8xl font-light tracking-tight text-white opacity-50">
+          <h3
+            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 1 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+          >
             1
           </h3>
-          <h3 className="scroll-m-20 text-8xl font-light tracking-tight  text-white opacity-50">
+          <h3
+            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 2 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+          >
             2
           </h3>
-          <h3 className="scroll-m-20 text-8xl font-light tracking-tight  text-white opacity-50">
+          <h3
+            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 3 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+          >
             3
           </h3>
-          <h3 className="scroll-m-20 text-8xl font-light tracking-tight  text-white opacity-50">
+          <h3
+            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 4 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+          >
             4
           </h3>
         </div>
@@ -350,7 +445,7 @@ export default function Home() {
         <button
           className="hover:opacity-70 active:opacity-50 flex items-center justify-center "
           onClick={() => {
-            handleReset();
+            resetVisited();
           }}
         >
           <h3 className="scroll-m-20 text-6xl font-light text-white text-center">
