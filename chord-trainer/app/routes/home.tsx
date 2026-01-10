@@ -2,6 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import type { Route } from "./+types/home";
 import { Play, Repeat, Pause } from "lucide-react";
 import * as Tone from "tone";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -24,6 +31,8 @@ export default function Home() {
   const [beat, setBeat] = useState(1);
   const [tempo, setTempo] = useState(60); // BPM
   const [tempoInput, setTempoInput] = useState("60");
+  const [beatsPerMeasure, setBeatsPerMeasure] = useState(4);
+  const beatOptions = [2, 3, 4, 6, 8];
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const bgColorSelection = [
@@ -78,9 +87,11 @@ export default function Home() {
       const intervalMs = 60000 / tempo; // Convert BPM to milliseconds
       intervalRef.current = setInterval(() => {
         setBeat((prevBeat) => {
-          const nextBeat = prevBeat === 4 ? 1 : prevBeat + 1;
+          const nextBeat = prevBeat === beatsPerMeasure ? 1 : prevBeat + 1;
           // Use prevBeat instead of beat
-          prevBeat === 4 ? playClickSound("C5") : playClickSound("C4");
+          prevBeat === beatsPerMeasure
+            ? playClickSound("C5")
+            : playClickSound("C4");
           return nextBeat;
         });
       }, intervalMs);
@@ -92,7 +103,7 @@ export default function Home() {
         intervalRef.current = null;
       }
     };
-  }, [isMetronomeOn, tempo]);
+  }, [isMetronomeOn, tempo, beatsPerMeasure]);
 
   // Trigger chord switch on beat 1
   useEffect(() => {
@@ -313,27 +324,36 @@ export default function Home() {
           </div>
           <h4 className="text-xl text-white opacity-70">BPM</h4>
         </div>
+
         <div className="flex-row flex space-x-8">
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 1 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+          {Array.from({ length: beatsPerMeasure }, (_, i) => i + 1).map(
+            (num) => (
+              <h3
+                key={num}
+                className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === num && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+              >
+                {num}
+              </h3>
+            )
+          )}
+        </div>
+        <div className="flex flex-col items-center space-y-2">
+          <Select
+            value={beatsPerMeasure.toString()}
+            onValueChange={(value) => setBeatsPerMeasure(Number(value))}
           >
-            1
-          </h3>
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 2 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
-          >
-            2
-          </h3>
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 3 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
-          >
-            3
-          </h3>
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 4 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
-          >
-            4
-          </h3>
+            <SelectTrigger className="w-20 h-12 text-2xl font-light text-white bg-transparent border-2 border-white rounded-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {beatOptions.map((option) => (
+                <SelectItem key={option} value={option.toString()}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <h4 className="text-xl text-white opacity-70">beats</h4>
         </div>
       </div>
       {/* left */}
