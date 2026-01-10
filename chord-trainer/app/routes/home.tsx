@@ -509,9 +509,42 @@ export default function Home() {
         </div>
         {/* top */}
       </div>
-      <div className="absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 lg:left-1/2 lg:-translate-x-1/2">
+      {/* Key display with mobile selector */}
+      <div className="absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 flex items-center gap-2">
         <h3 className="scroll-m-20 text-3xl sm:text-5xl lg:text-6xl font-light text-white">
-          Key: {key}
+          Key:
+        </h3>
+        {/* Mobile key selector */}
+        <div className="lg:hidden">
+          <Select value={key} onValueChange={(value) => setKey(value)}>
+            <SelectTrigger className="w-20 sm:w-24 h-10 sm:h-12 text-2xl sm:text-4xl font-light text-white bg-transparent border-2 border-white rounded-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[
+                "C",
+                "Db",
+                "D",
+                "Eb",
+                "E",
+                "F",
+                "F#",
+                "G",
+                "Ab",
+                "A",
+                "Bb",
+                "B",
+              ].map((k) => (
+                <SelectItem key={k} value={k}>
+                  {k}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Desktop key display */}
+        <h3 className="hidden lg:block scroll-m-20 text-6xl font-light text-white">
+          {key}
         </h3>
       </div>
       {/* color menu */}
