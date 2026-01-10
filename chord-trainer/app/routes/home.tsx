@@ -14,7 +14,9 @@ export default function Home() {
   const [bgColor, setBgColor] = useState("black");
   const [key, setKey] = useState("C");
   const [visited, setVisited] = useState<boolean[]>(Array(7).fill(false));
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentChord, setCurrentChord] = useState("---");
+  const [prevChord, setPrevChord] = useState("---");
+  const [nextIndex, setNextIndex] = useState(0);
   const [currentKeyChords, setCurrentKeyChords] = useState<string[]>([]);
   const [disabled, setDisabled] = useState<boolean[]>(Array(7).fill(false));
   const [showColorMenu, setShowColorMenu] = useState(false);
@@ -96,17 +98,8 @@ export default function Home() {
       const unvisitedCount = visited.filter(
         (v, i) => !v && !disabled[i]
       ).length;
-      if (unvisitedCount === 0) {
-        // All visited, stop metronome
-        setIsMetronomeOn(false);
-        setBeat(1);
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      } else {
-        handleSwitchChord();
-      }
+
+      handleSwitchChord();
     }
   }, [beat]);
 
@@ -127,10 +120,10 @@ export default function Home() {
     // console.log("step3: detect currentIndex change:", currentIndex);
     setVisited((prev) => {
       const newVisited = [...prev];
-      newVisited[currentIndex] = true;
+      newVisited[nextIndex] = true;
       return newVisited;
     });
-  }, [currentIndex]);
+  }, [nextIndex]);
 
   const dominant_seventh = [
     "Maj7",
@@ -168,7 +161,7 @@ export default function Home() {
     // console.log("step 1: handle switch called");
     const unvisitedIndices = visited
       .map((isVisited, index) =>
-        !isVisited && !disabled[index] && index !== currentIndex ? index : -1
+        !isVisited && !disabled[index] && index !== nextIndex ? index : -1
       )
       .filter((index) => index !== -1);
 
@@ -176,11 +169,13 @@ export default function Home() {
       setVisited(Array(7).fill(false));
       const newArray = disabled
         .map((isDisabled, index) =>
-          !isDisabled && index !== currentIndex ? index : -1
+          !isDisabled && index !== nextIndex ? index : -1
         )
         .filter((index) => index !== -1);
       const randomIndex = newArray[Math.floor(Math.random() * newArray.length)];
-      setCurrentIndex(randomIndex);
+      setNextIndex(randomIndex);
+      setPrevChord(currentChord);
+      setCurrentChord(currentKeyChords[nextIndex]);
       // console.log("step2: change currentIndex", randomIndex);
       return;
     }
@@ -188,7 +183,9 @@ export default function Home() {
     const randomIndex =
       unvisitedIndices[Math.floor(Math.random() * unvisitedIndices.length)];
     // console.log("step2: change currentIndex", randomIndex);
-    setCurrentIndex(randomIndex);
+    setNextIndex(randomIndex);
+    setPrevChord(currentChord);
+    setCurrentChord(currentKeyChords[nextIndex]);
   };
 
   const handleChordClick = (index: number) => {
@@ -225,9 +222,34 @@ export default function Home() {
       className="flex-1 flex  w-screen h-screen justify-center items-center select-none"
       style={{ backgroundColor: bgColor }}
     >
-      <h1 className="scroll-m-20 text-center text-[250px] font-extrabold tracking-tight text-balance text-white">
-        {currentKeyChords[currentIndex]}
-      </h1>
+      {/* prev chord */}
+      <div className="absolute left-60 top-20 flex leading-tight flex-col">
+        <h1 className=" text-center  text-[75px] font-extrabold tracking-tight text-balance text-white">
+          {prevChord}
+        </h1>
+        <h2 className="scroll-m-20 text-center   text-[25px] font-extrabold tracking-tight text-balance text-white">
+          previous chord
+        </h2>
+      </div>
+      {/* next chord */}
+      <div className=" absolute right-60 top-20 flex leading-tight flex-col">
+        <h1 className=" text-center text-[75px] font-extrabold tracking-tight text-balance text-white">
+          {currentKeyChords[nextIndex]}
+        </h1>
+        <h2 className="scroll-m-20 text-center text-[25px] font-extrabold tracking-tight text-balance text-white">
+          next chord
+        </h2>
+      </div>
+
+      <div className="flex leading-tight flex-col">
+        <h1 className=" text-center  text-[250px] font-extrabold tracking-tight text-balance text-white">
+          {currentChord}
+        </h1>
+        <h2 className="scroll-m-20 text-center text-[50px] font-extrabold tracking-tight text-balance text-white">
+          current chord
+        </h2>
+      </div>
+
       {/* footer */}
       <div className="absolute bottom-12 space-x-12 flex flex-row items-center justify-center">
         {/* start */}
