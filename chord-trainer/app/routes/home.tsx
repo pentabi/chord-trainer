@@ -27,6 +27,7 @@ export default function Home() {
   const [currentKeyChords, setCurrentKeyChords] = useState<string[]>([]);
   const [disabled, setDisabled] = useState<boolean[]>(Array(7).fill(false));
   const [showColorMenu, setShowColorMenu] = useState(false);
+  const [showChordPanel, setShowChordPanel] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [beat, setBeat] = useState(1);
   const [tempo, setTempo] = useState(60); // BPM
@@ -567,6 +568,53 @@ export default function Home() {
                 style={{ backgroundColor: color }}
               />
             ))}
+          </div>
+        )}
+      </div>
+      {/* Mobile chord panel toggle */}
+      <div className="lg:hidden absolute top-24 sm:top-48 left-4 sm:left-8 z-1000">
+        <button
+          onClick={() => setShowChordPanel(!showChordPanel)}
+          className="hover:opacity-70 active:opacity-50 border-white w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 sm:border-4 bg-white/20 flex items-center justify-center"
+        >
+          <span className="text-white text-lg sm:text-xl font-bold">♪</span>
+        </button>
+
+        {showChordPanel && (
+          <div className="mt-2 bg-white rounded-2xl p-2 sm:p-3 absolute left-0 max-h-[60vh] overflow-y-auto">
+            <button
+              className="hover:opacity-70 active:opacity-50 w-full mb-2 py-1"
+              onClick={() => {
+                resetVisited();
+              }}
+            >
+              <span
+                className="text-lg sm:text-xl font-light"
+                style={{ color: bgColor }}
+              >
+                reset
+              </span>
+            </button>
+            <div className="flex flex-col rounded-xl w-28 sm:w-32">
+              {currentKeyChords.map((chord, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleChordClick(index)}
+                  className={`items-center justify-center flex w-full p-1 sm:p-2 bg-white hover:opacity-80 active:opacity-50 ${index === 0 ? "rounded-t-xl" : ""} ${index === 6 ? "rounded-b-xl" : "border-b"}`}
+                  style={{
+                    borderColor: bgColor,
+                    opacity: disabled[index] ? 0.3 : visited[index] ? 0.7 : 1,
+                  }}
+                >
+                  <span
+                    className="text-lg sm:text-xl font-light"
+                    style={{ color: bgColor }}
+                  >
+                    {chord}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
