@@ -23,6 +23,7 @@ export default function Home() {
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [beat, setBeat] = useState(1);
   const [tempo, setTempo] = useState(60); // BPM
+  const [tempoInput, setTempoInput] = useState("60");
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const bgColorSelection = [
@@ -276,17 +277,34 @@ export default function Home() {
         <div className="flex flex-col items-center space-y-2">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => setTempo((t) => Math.max(30, t - 10))}
+              onClick={() => {
+                setTempoInput((t) => Math.max(30, Number(t) - 10).toString());
+                setTempo((t) => Math.max(30, t - 10));
+              }}
               className="w-12 h-12 rounded-full bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center text-2xl font-bold"
               style={{ color: bgColor }}
             >
               -
             </button>
-            <h3 className="scroll-m-20 text-4xl font-light tracking-tight text-white w-24 text-center">
-              {tempo}
-            </h3>
+            <input
+              type="number"
+              value={tempoInput}
+              onChange={(e) => {
+                setTempoInput(e.target.value);
+              }}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value) || 30;
+                const clamped = Math.min(400, Math.max(10, val));
+                setTempo(clamped);
+                setTempoInput(clamped.toString());
+              }}
+              className="scroll-m-20 text-4xl font-light tracking-tight text-white w-24 text-center bg-transparent border-b-2 border-white outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
             <button
-              onClick={() => setTempo((t) => Math.min(240, t + 10))}
+              onClick={() => {
+                setTempoInput((t) => Math.min(240, Number(t) + 10).toString());
+                setTempo((t) => Math.min(240, t + 10));
+              }}
               className="w-12 h-12 rounded-full bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center text-2xl font-bold"
               style={{ color: bgColor }}
             >
