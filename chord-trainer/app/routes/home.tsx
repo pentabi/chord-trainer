@@ -2,6 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import type { Route } from "./+types/home";
 import { Play, Repeat, Pause } from "lucide-react";
 import * as Tone from "tone";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "~/components/ui/select";
 
 export function meta({}: Route.MetaArgs) {
   return [
@@ -14,12 +21,19 @@ export default function Home() {
   const [bgColor, setBgColor] = useState("black");
   const [key, setKey] = useState("C");
   const [visited, setVisited] = useState<boolean[]>(Array(7).fill(false));
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentChord, setCurrentChord] = useState("---");
+  const [prevChord, setPrevChord] = useState("---");
+  const [nextIndex, setNextIndex] = useState(0);
   const [currentKeyChords, setCurrentKeyChords] = useState<string[]>([]);
   const [disabled, setDisabled] = useState<boolean[]>(Array(7).fill(false));
   const [showColorMenu, setShowColorMenu] = useState(false);
+  const [showChordPanel, setShowChordPanel] = useState(false);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [beat, setBeat] = useState(1);
+  const [tempo, setTempo] = useState(60); // BPM
+  const [tempoInput, setTempoInput] = useState("60");
+  const [beatsPerMeasure, setBeatsPerMeasure] = useState(4);
+  const beatOptions = [2, 3, 4, 6, 8];
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const bgColorSelection = [
@@ -71,14 +85,17 @@ export default function Home() {
   // Metronome effect
   useEffect(() => {
     if (isMetronomeOn) {
+      const intervalMs = 60000 / tempo; // Convert BPM to milliseconds
       intervalRef.current = setInterval(() => {
         setBeat((prevBeat) => {
-          const nextBeat = prevBeat === 4 ? 1 : prevBeat + 1;
+          const nextBeat = prevBeat === beatsPerMeasure ? 1 : prevBeat + 1;
           // Use prevBeat instead of beat
-          prevBeat === 4 ? playClickSound("C5") : playClickSound("C4");
+          prevBeat === beatsPerMeasure
+            ? playClickSound("C5")
+            : playClickSound("C4");
           return nextBeat;
         });
-      }, 1000);
+      }, intervalMs);
     }
 
     return () => {
@@ -87,7 +104,7 @@ export default function Home() {
         intervalRef.current = null;
       }
     };
-  }, [isMetronomeOn]);
+  }, [isMetronomeOn, tempo, beatsPerMeasure]);
 
   // Trigger chord switch on beat 1
   useEffect(() => {
@@ -96,17 +113,8 @@ export default function Home() {
       const unvisitedCount = visited.filter(
         (v, i) => !v && !disabled[i]
       ).length;
-      if (unvisitedCount === 0) {
-        // All visited, stop metronome
-        setIsMetronomeOn(false);
-        setBeat(1);
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      } else {
-        handleSwitchChord();
-      }
+
+      handleSwitchChord();
     }
   }, [beat]);
 
@@ -127,10 +135,10 @@ export default function Home() {
     // console.log("step3: detect currentIndex change:", currentIndex);
     setVisited((prev) => {
       const newVisited = [...prev];
-      newVisited[currentIndex] = true;
+      newVisited[nextIndex] = true;
       return newVisited;
     });
-  }, [currentIndex]);
+  }, [nextIndex]);
 
   const dominant_seventh = [
     "Maj7",
@@ -168,7 +176,7 @@ export default function Home() {
     // console.log("step 1: handle switch called");
     const unvisitedIndices = visited
       .map((isVisited, index) =>
-        !isVisited && !disabled[index] && index !== currentIndex ? index : -1
+        !isVisited && !disabled[index] && index !== nextIndex ? index : -1
       )
       .filter((index) => index !== -1);
 
@@ -176,11 +184,13 @@ export default function Home() {
       setVisited(Array(7).fill(false));
       const newArray = disabled
         .map((isDisabled, index) =>
-          !isDisabled && index !== currentIndex ? index : -1
+          !isDisabled && index !== nextIndex ? index : -1
         )
         .filter((index) => index !== -1);
       const randomIndex = newArray[Math.floor(Math.random() * newArray.length)];
-      setCurrentIndex(randomIndex);
+      setNextIndex(randomIndex);
+      setPrevChord(currentChord);
+      setCurrentChord(currentKeyChords[nextIndex]);
       // console.log("step2: change currentIndex", randomIndex);
       return;
     }
@@ -188,7 +198,9 @@ export default function Home() {
     const randomIndex =
       unvisitedIndices[Math.floor(Math.random() * unvisitedIndices.length)];
     // console.log("step2: change currentIndex", randomIndex);
-    setCurrentIndex(randomIndex);
+    setNextIndex(randomIndex);
+    setPrevChord(currentChord);
+    setCurrentChord(currentKeyChords[nextIndex]);
   };
 
   const handleChordClick = (index: number) => {
@@ -222,64 +234,150 @@ export default function Home() {
 
   return (
     <div
-      className="flex-1 flex  w-screen h-screen justify-center items-center select-none"
+      className="flex-1 flex w-screen h-screen justify-center items-center select-none overflow-hidden"
       style={{ backgroundColor: bgColor }}
     >
-      <h1 className="scroll-m-20 text-center text-[250px] font-extrabold tracking-tight text-balance text-white">
-        {currentKeyChords[currentIndex]}
-      </h1>
+      {/* prev chord */}
+      <div className="absolute left-4 sm:left-20 lg:left-60 top-4 sm:top-12 lg:top-20 flex leading-tight flex-col">
+        <h1 className="text-center text-[32px] sm:text-[50px] lg:text-[75px] font-extrabold tracking-tight text-balance text-white">
+          {prevChord}
+        </h1>
+        <h2 className="scroll-m-20 text-center text-[12px] sm:text-[18px] lg:text-[25px] font-extrabold tracking-tight text-balance text-white">
+          previous chord
+        </h2>
+      </div>
+      {/* next chord */}
+      <div className="absolute right-4 sm:right-20 lg:right-60 top-4 sm:top-12 lg:top-20 flex leading-tight flex-col">
+        <h1 className="text-center text-[32px] sm:text-[50px] lg:text-[75px] font-extrabold tracking-tight text-balance text-white">
+          {currentKeyChords[nextIndex]}
+        </h1>
+        <h2 className="scroll-m-20 text-center text-[12px] sm:text-[18px] lg:text-[25px] font-extrabold tracking-tight text-balance text-white">
+          next chord
+        </h2>
+      </div>
+
+      <div className="flex leading-tight flex-col">
+        <h1 className="text-center text-[80px] sm:text-[150px] lg:text-[250px] font-extrabold tracking-tight text-balance text-white">
+          {currentChord}
+        </h1>
+        <h2 className="scroll-m-20 text-center text-[20px] sm:text-[35px] lg:text-[50px] font-extrabold tracking-tight text-balance text-white">
+          current chord
+        </h2>
+      </div>
+
       {/* footer */}
-      <div className="absolute bottom-12 space-x-12 flex flex-row items-center justify-center">
+      <div className="absolute bottom-4 sm:bottom-8 lg:bottom-12 space-x-2 sm:space-x-6 lg:space-x-12 flex flex-row items-center justify-center flex-wrap gap-y-4">
         {/* start */}
         <button
           onClick={handlePlay}
-          className=" rounded-full w-32 h-32 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-16 h-16 sm:w-24 sm:h-24 lg:w-32 lg:h-32 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           {isMetronomeOn ? (
-            <Pause size={55} color={bgColor} />
+            <Pause
+              className="w-7 h-7 sm:w-10 sm:h-10 lg:w-14 lg:h-14"
+              color={bgColor}
+            />
           ) : (
-            <Play size={55} color={bgColor} />
+            <Play
+              className="w-7 h-7 sm:w-10 sm:h-10 lg:w-14 lg:h-14"
+              color={bgColor}
+            />
           )}
         </button>
         {/* switch */}
         <button
           disabled={isMetronomeOn}
           onClick={handleSwitchChord}
-          className=" rounded-full w-32 h-32 disabled:opacity-30 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-16 h-16 sm:w-24 sm:h-24 lg:w-32 lg:h-32 disabled:opacity-30 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
-          <Repeat size={55} color={bgColor} />
+          <Repeat
+            className="w-7 h-7 sm:w-10 sm:h-10 lg:w-14 lg:h-14"
+            color={bgColor}
+          />
         </button>
-        <div className="flex-row flex space-x-8">
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 1 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+        <div className="flex flex-col items-center space-y-1 sm:space-y-2">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <button
+              onClick={() => {
+                setTempoInput((t) => Math.max(30, Number(t) - 10).toString());
+                setTempo((t) => Math.max(30, t - 10));
+              }}
+              className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center text-lg sm:text-xl lg:text-2xl font-bold"
+              style={{ color: bgColor }}
+            >
+              -
+            </button>
+            <input
+              type="number"
+              value={tempoInput}
+              onChange={(e) => {
+                setTempoInput(e.target.value);
+              }}
+              onBlur={(e) => {
+                const val = parseInt(e.target.value) || 30;
+                const clamped = Math.min(400, Math.max(10, val));
+                setTempo(clamped);
+                setTempoInput(clamped.toString());
+              }}
+              className="scroll-m-20 text-2xl sm:text-3xl lg:text-4xl font-light tracking-tight text-white w-16 sm:w-20 lg:w-24 text-center bg-transparent border-b-2 border-white outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <button
+              onClick={() => {
+                setTempoInput((t) => Math.min(240, Number(t) + 10).toString());
+                setTempo((t) => Math.min(240, t + 10));
+              }}
+              className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center text-lg sm:text-xl lg:text-2xl font-bold"
+              style={{ color: bgColor }}
+            >
+              +
+            </button>
+          </div>
+          <h4 className="text-sm sm:text-lg lg:text-xl text-white opacity-70">
+            BPM
+          </h4>
+        </div>
+
+        <div className="flex-row flex space-x-2 sm:space-x-4 lg:space-x-8">
+          {Array.from({ length: beatsPerMeasure }, (_, i) => i + 1).map(
+            (num) => (
+              <h3
+                key={num}
+                className={`scroll-m-20 text-4xl sm:text-6xl lg:text-8xl font-light tracking-tight text-white ${beat === num && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
+              >
+                {num}
+              </h3>
+            )
+          )}
+        </div>
+        <div className="flex flex-col items-center space-y-1 sm:space-y-2">
+          <Select
+            value={beatsPerMeasure.toString()}
+            onValueChange={(value) => setBeatsPerMeasure(Number(value))}
           >
-            1
-          </h3>
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 2 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
-          >
-            2
-          </h3>
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 3 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
-          >
-            3
-          </h3>
-          <h3
-            className={`scroll-m-20 text-8xl font-light tracking-tight text-white ${beat === 4 && isMetronomeOn ? "opacity-100" : "opacity-50"}`}
-          >
-            4
-          </h3>
+            <SelectTrigger className="w-16 h-10 sm:w-16 sm:h-11 lg:w-20 lg:h-12 text-lg sm:text-xl lg:text-2xl font-light text-white bg-transparent border-2 border-white rounded-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {beatOptions.map((option) => (
+                <SelectItem key={option} value={option.toString()}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <h4 className="text-sm sm:text-lg lg:text-xl text-white opacity-70">
+            beats
+          </h4>
         </div>
       </div>
       {/* left */}
-      <div className="flex flex-col absolute left-6 space-y-4">
+      <div className="hidden lg:flex flex-col absolute left-6 space-y-4">
         <button
           onClick={() => handleKeyClick("C")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             C
@@ -287,10 +385,10 @@ export default function Home() {
         </button>
         <button
           onClick={() => handleKeyClick("D")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             D
@@ -298,10 +396,10 @@ export default function Home() {
         </button>
         <button
           onClick={() => handleKeyClick("E")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             E
@@ -309,10 +407,10 @@ export default function Home() {
         </button>
         <button
           onClick={() => handleKeyClick("F")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             F
@@ -320,10 +418,10 @@ export default function Home() {
         </button>
         <button
           onClick={() => handleKeyClick("G")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             G
@@ -331,10 +429,10 @@ export default function Home() {
         </button>
         <button
           onClick={() => handleKeyClick("A")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             A
@@ -342,10 +440,10 @@ export default function Home() {
         </button>
         <button
           onClick={() => handleKeyClick("B")}
-          className=" rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
+          className="rounded-full w-24 h-24 bg-white hover:opacity-80 active:opacity-50 flex justify-center items-center"
         >
           <h3
-            className="scroll-m-20 text-6xl font-light "
+            className="scroll-m-20 text-6xl font-light"
             style={{ color: bgColor }}
           >
             B
@@ -412,20 +510,53 @@ export default function Home() {
         </div>
         {/* top */}
       </div>
-      <div className="absolute top-12">
-        <h3 className="scroll-m-20 text-6xl font-light text-white">
-          Key: {key}
+      {/* Key display with mobile selector */}
+      <div className="absolute top-16 sm:top-12 left-1/2 -translate-x-1/2 flex items-center gap-2">
+        <h3 className="scroll-m-20 text-3xl sm:text-5xl lg:text-6xl font-light text-white">
+          Key:
+        </h3>
+        {/* Mobile key selector */}
+        <div className="lg:hidden">
+          <Select value={key} onValueChange={(value) => setKey(value)}>
+            <SelectTrigger className="w-20 sm:w-24 h-10 sm:h-12 text-2xl sm:text-4xl font-light text-white bg-transparent border-2 border-white rounded-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {[
+                "C",
+                "Db",
+                "D",
+                "Eb",
+                "E",
+                "F",
+                "F#",
+                "G",
+                "Ab",
+                "A",
+                "Bb",
+                "B",
+              ].map((k) => (
+                <SelectItem key={k} value={k}>
+                  {k}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Desktop key display */}
+        <h3 className="hidden lg:block scroll-m-20 text-6xl font-light text-white">
+          {key}
         </h3>
       </div>
       {/* color menu */}
-      <div className="absolute top-12 right-12 z-1000">
+      <div className="absolute top-24 sm:top-48 lg:top-12 right-4 sm:right-8 lg:right-12 z-1000">
         <button
           onClick={() => setShowColorMenu(!showColorMenu)}
-          className="hover:opacity-70 active:opacity-50 border-white w-16 h-16 rounded-full border-4 "
+          className="hover:opacity-70 active:opacity-50 border-white w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-full border-2 sm:border-4"
         ></button>
 
         {showColorMenu && (
-          <div className="mt-4 flex flex-col space-y-2 bg-white rounded-2xl p-4 absolute right-0">
+          <div className="mt-2 sm:mt-4 flex flex-col space-y-1 sm:space-y-2 bg-white rounded-2xl p-2 sm:p-4 absolute right-0 max-h-[70vh] overflow-y-auto">
             {bgColorSelection.map((color) => (
               <button
                 key={color}
@@ -433,17 +564,64 @@ export default function Home() {
                   setBgColor(color);
                   setShowColorMenu(false);
                 }}
-                className="w-16 h-16 rounded-full hover:opacity-80 active:opacity-50 border-4 border-white shadow-lg"
+                className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 rounded-full hover:opacity-80 active:opacity-50 border-2 sm:border-4 border-white shadow-lg flex-shrink-0"
                 style={{ backgroundColor: color }}
               />
             ))}
           </div>
         )}
       </div>
-      {/* right */}
-      <div className="absolute right-12 flex flex-col items-center justify-center">
+      {/* Mobile chord panel toggle */}
+      <div className="lg:hidden absolute top-24 sm:top-48 left-4 sm:left-8 z-1000">
         <button
-          className="hover:opacity-70 active:opacity-50 flex items-center justify-center "
+          onClick={() => setShowChordPanel(!showChordPanel)}
+          className="hover:opacity-70 active:opacity-50 border-white w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 sm:border-4 bg-white/20 flex items-center justify-center"
+        >
+          <span className="text-white text-lg sm:text-xl font-bold">♪</span>
+        </button>
+
+        {showChordPanel && (
+          <div className="mt-2 bg-white rounded-2xl p-2 sm:p-3 absolute left-0 max-h-[60vh] overflow-y-auto">
+            <button
+              className="hover:opacity-70 active:opacity-50 w-full mb-2 py-1"
+              onClick={() => {
+                resetVisited();
+              }}
+            >
+              <span
+                className="text-lg sm:text-xl font-light"
+                style={{ color: bgColor }}
+              >
+                reset
+              </span>
+            </button>
+            <div className="flex flex-col rounded-xl w-28 sm:w-32">
+              {currentKeyChords.map((chord, index) => (
+                <button
+                  key={index}
+                  onClick={() => handleChordClick(index)}
+                  className={`items-center justify-center flex w-full p-1 sm:p-2 bg-white hover:opacity-80 active:opacity-50 ${index === 0 ? "rounded-t-xl" : ""} ${index === 6 ? "rounded-b-xl" : "border-b"}`}
+                  style={{
+                    borderColor: bgColor,
+                    opacity: disabled[index] ? 0.3 : visited[index] ? 0.7 : 1,
+                  }}
+                >
+                  <span
+                    className="text-lg sm:text-xl font-light"
+                    style={{ color: bgColor }}
+                  >
+                    {chord}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      {/* right */}
+      <div className="hidden lg:flex absolute right-12 flex-col items-center justify-center">
+        <button
+          className="hover:opacity-70 active:opacity-50 flex items-center justify-center"
           onClick={() => {
             resetVisited();
           }}
@@ -453,7 +631,7 @@ export default function Home() {
           </h3>
         </button>
 
-        <div className="flex flex-col rounded-2xl  w-48 items-center justify-center mt-12">
+        <div className="flex flex-col rounded-2xl w-48 items-center justify-center mt-12">
           <button
             onClick={() => handleChordClick(0)}
             className="items-center justify-center flex flex-1 w-full  not-last:border-b p-2 py-4 rounded-t-2xl bg-white hover:opacity-80 active:opacity-50"
